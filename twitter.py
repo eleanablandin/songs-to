@@ -1,6 +1,9 @@
 import tweepy
 import requests
 import json 
+import random
+import time
+
 
 
 # API twitter credentiales
@@ -24,16 +27,24 @@ deezer_token = deezer_access_token[0]
 
 user_id = 729578273
 
-def get_song_user():
+def get_user_songs():
     url = f'https://api.deezer.com/user/{user_id}/tracks'
     headers = {'Authorization' : 'Bearer ' + deezer_token}
     response = requests.get(url, headers=headers)
     data = json.loads(response.content)
-    songs = data['data']
+    songs = []
+
+    for song in data['data']:
+        songs.append({
+            'title':song['title'],
+            'artist':song['artist']['name'],
+            'link': song['link']
+        })
+    
     return songs
 
 
-def get_song_artist():
+def get_user_artist_songs():
     url = f'https://api.deezer.com/user/{user_id}/artists'
     headers = {'Authorization' : 'Bearer ' + deezer_token}
     response = requests.get(url, headers=headers)
@@ -41,9 +52,9 @@ def get_song_artist():
     songs = []
     
     # Go over to the artist list 
-    for song in data['data']:
+    for artist in data['data']:
         # Get the tracklist of artist
-        tracklist = song['tracklist']
+        tracklist = artist['tracklist']
 
         # GET to the tracklist of the artist. I put a params to get the first 10 songs
         tracklist_response = requests.get(tracklist, params={'limit':10})
@@ -54,16 +65,20 @@ def get_song_artist():
             # Get the song list from the tracklist
             tracks = tracklist_data['data']
 
-            songs.append({
-                'tracks':tracks
-            })
+            for track in tracks:
+                songs.append({
+                    'title':track['title'],
+                    'artist': track['artist']['name'],
+                    'link': track['link'],
+                    'cover': track['album']['cover']
+                 })
         else:
             print('Error:', response.status_code)
 
     return songs
 
 
-def get_song_playlist():
+def get_user_playlist_songs():
     url = f'https://api.deezer.com/user/{user_id}/playlists'
     headers = {'Authorization' : 'Bearer ' + deezer_token}
     response = requests.get(url, headers=headers)
@@ -80,9 +95,14 @@ def get_song_playlist():
 
             tracks = tracks_data['data']
 
-            songs.append({
-                'tracks':tracks
-            })
+            for track in tracks:
+                songs.append({
+                    'title':track['title'],
+                    'artist': track['artist']['name'],
+                    'link': track['link'],
+                    'cover': track['album']['cover']
+                 })
+
         else:
             print('Error:', response.status_code)
 
@@ -95,8 +115,42 @@ def get_popular_songs():
     headers = {'Authorization' : 'Bearer ' + deezer_token}
     response = requests.get(url, headers=headers)
     data = json.loads(response.content)
-    songs = data['tracks']['data']
+    songs = []
+
+    for song in data['tracks']['data']:
+        songs.append({
+            'title':song['title'],
+            'artist':song['artist']['name'],
+            'link': song['link']
+        })
+    
     return songs
 
-popular_songs = get_popular_songs()
-print(popular_songs)
+
+def tweet(song):
+    tweet_text = f"Hi! Listen this song {song['title']} by {song['artist']}\n{song['link']}"
+    api.update_status(status=tweet_text)
+
+
+
+while True:
+    try:
+      user_songs = get_user_songs()
+      artist_songs = get_user_artist_songs()
+      playlist_songs = get_user_playlist_songs()
+
+      popular_songs = get_popular_songs()
+
+      all_songs = user_songs + artist_songs + playlist_songs + popular_songs
+
+      song = random.choice(all_songs)
+
+      tweet(song)
+       
+
+      time.sleep(60 * 60 * 5)
+
+    except Exception as e:
+        print('Error: ', e)
+        time.sleep(60 * 60)
+

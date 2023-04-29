@@ -3,7 +3,7 @@ import requests
 import json 
 import random
 import time
-
+import os
 
 
 # API twitter credentiales
@@ -20,11 +20,11 @@ auth.set_access_token(access_token, access_token_secret)
 #obj API twitter 
 api = tweepy.API(auth)
 
-
 #Acces token Deezer
 deezer_access_token = open('access_token.txt', 'r').read().splitlines()
 deezer_token = deezer_access_token[0]
 
+#user id de deezer 
 user_id = 729578273
 
 def get_user_songs():
@@ -36,9 +36,11 @@ def get_user_songs():
 
     for song in data['data']:
         songs.append({
+            'id':song['id'],
             'title':song['title'],
             'artist':song['artist']['name'],
-            'link': song['link']
+            'link': song['link'],
+            'cover': song['album']['cover_xl']
         })
     
     return songs
@@ -67,10 +69,11 @@ def get_user_artist_songs():
 
             for track in tracks:
                 songs.append({
+                    'id': track['id'],
                     'title':track['title'],
                     'artist': track['artist']['name'],
                     'link': track['link'],
-                    'cover': track['album']['cover']
+                    'cover': track['album']['cover_xl']
                  })
         else:
             print('Error:', response.status_code)
@@ -97,10 +100,11 @@ def get_user_playlist_songs():
 
             for track in tracks:
                 songs.append({
+                    'id':track['id'],
                     'title':track['title'],
                     'artist': track['artist']['name'],
                     'link': track['link'],
-                    'cover': track['album']['cover']
+                    'cover': track['album']['cover_xl']
                  })
 
         else:
@@ -119,38 +123,53 @@ def get_popular_songs():
 
     for song in data['tracks']['data']:
         songs.append({
+            'id':song['id'],
             'title':song['title'],
             'artist':song['artist']['name'],
-            'link': song['link']
+            'link': song['link'],
+            'cover': song['album']['cover_xl']
         })
     
     return songs
 
 
-def tweet(song):
-    tweet_text = f"Hi! Listen this song {song['title']} by {song['artist']}\n{song['link']}"
-    api.update_status(status=tweet_text)
 
+def tweet(song):
+    widget_url = f'https://widget.deezer.com/widget/dark/track/{song["id"]}'
+    response = requests.get(song['cover'])
+    with open('cover.jpg', 'wb') as f:
+        f.write(response.content)
+    
+    album_cover = api.media_upload('cover.jpg')
+    tweet_text = f"Hi 🖐️ Check this song 💿: \n{song['title']} by {song['artist']} \n {widget_url}"
+    api.update_status(status=tweet_text, media_ids=[album_cover.media_id], auto_populate_reply_metadata=True)
+
+
+    os.remove('cover.jpg')
 
 
 while True:
-    try:
-      user_songs = get_user_songs()
-      artist_songs = get_user_artist_songs()
-      playlist_songs = get_user_playlist_songs()
 
-      popular_songs = get_popular_songs()
+     try:
+        user_songs = get_user_songs()
+        artist_songs = get_user_artist_songs()
+        playlist_songs = get_user_playlist_songs()
 
-      all_songs = user_songs + artist_songs + playlist_songs + popular_songs
+        popular_songs = get_popular_songs()
 
-      song = random.choice(all_songs)
+        all_songs = user_songs + artist_songs + playlist_songs + popular_songs
 
-      tweet(song)
+        song = random.choice(all_songs)
+
+        tweet(song)
        
+      
+        time.sleep(60 * 60 * 5)
 
-      time.sleep(60 * 60 * 5)
-
-    except Exception as e:
+     except Exception as e:
         print('Error: ', e)
         time.sleep(60 * 60)
+
+
+
 
